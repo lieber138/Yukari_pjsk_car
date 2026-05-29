@@ -1,4 +1,5 @@
 import re
+import random
 DICTIONARY = {
     "🦐": "🦐",
     "虾": "🦐",
@@ -9,45 +10,82 @@ DICTIONARY = {
     "omks":"おまかせ",
     "mv车":"MV",
 }
-def do_transform(chinese_input):
-    room_match = re.search(r'\d{5}', chinese_input)
+
+MODE_RULES = {
+    "清火": "火消し",
+    "消火": "火消し",
+    "长途": "長時間周回",
+    "高速": "高速周回"
+}
+
+tag_lines = [
+    "#プロセカ募集 #プロセカ協力 #プロセカ",
+    "#プロセカ協力 #プロセカ募集",
+    "#プロセカ #プロセカ募集",
+]
+
+extra_lines = [
+    "長時間歓迎",
+    "途中退室OK",
+    "スタンプ他と同じです",
+    "SF気にしません",
+    "難易度自由",
+    "集まるまで待てる方",
+    "条件違い解散"
+]
+
+
+def get_mode(raw):
+    for k, v in MODE_RULES.items():
+        if k in raw:
+            return v
+    return "周回"
+    
+def do_transform(text):
+    raw = text
+    room_match = re.search(r'\d{5}', raw)
     room_number = room_match.group() if room_match else "XXXXX"
     
-    people_match = re.search(r'(q|Q)\s*([1-4])', chinese_input)
+    people_match = re.search(r'(q|Q)\s*([1-4])', raw)
     wanted_players = people_match.group(2) if people_match else "1"
     
-    host_match = re.search(r'(房主|主|车头)\s*(\d{3})', chinese_input)
+    host_match = re.search(r'(房主|主|车头)\s*(\d{3})', raw)
     host_line = "" 
     if host_match:
         host_line = f"主:{host_match.group(2)}%\n"  # 抓到了就自带换行
+        
+    clean = raw
+    clean = re.sub(r'\d{5}', '', clean)  # 房间号
+    clean = re.sub(r'(房主|主|车头)\s*\d{3}', '', clean)  # 房主    
     
-    # 【募集加成核心修复】
-    clean_input = chinese_input
-    if host_match:
-        clean_input = clean_input.replace(host_match.group(), "") # 删掉 房主250
-    if room_match:
-        clean_input = clean_input.replace(room_number, "")        # 重点：把 55555 房号也删掉！
     
-    bonus_match = re.search(r'(\d{3})', clean_input)
+    bonus_match = re.search(r'(\d{3})', clean)
     bonus_line = "" 
     if bonus_match:
         bonus_line = f"募:{bonus_match.group(1)}%↑\n"
     
     if bonus_match:
-        clean_input = clean_input.replace(bonus_match.group(1), "")
+        clean= clean.replace(bonus_match.group(1), "")
     
+            
+
     support_line = ""
     # 检查有没有“推”、“支援”或者“实效”
-    if "推" in chinese_input or "支援" in chinese_input or "实效" in chinese_input:
-        support_match = re.search(r'(\d{3})', clean_input)
+    # support判断用 raw（只判断有没有关键词）
+    if "推" in raw or "支援" in raw or "实效" in raw:
+    
+        # support提数字用 clean（已经去掉房号/房主）
+        support_match = re.search(r'(\d{3})', clean)
+    
         if support_match:
-            # 完美还原你要求的日服网站格式：(支援います 256%)
             support_line = f"(支援います {support_match.group(1)}%)\n"
         else:
-            support_line = f"(支援います)\n"    
+            support_line = "(支援います)\n"
     
-    time_match = re.search(r'([\d一二三四五六七八九十]{1,2})[:点\s](\d{2})?分?(半)?', chinese_input)
-    count_match = re.search(r'([\d一二三四五六七八九十]+)\s*(把|次|圈|回)', chinese_input)
+    end_word = get_mode(raw)              
+    
+    time_match = re.search(r'([\d一二三四五六七八九十]{1,2})[:点\s](\d{2})?分?(半)?', raw)
+    count_match = re.search(r'([\d一二三四五六七八九十]+)\s*(把|次|圈|回)', raw)
     
     if time_match:
         hour = time_match.group(1)
@@ -79,24 +117,27 @@ def do_transform(chinese_input):
             count_num = cn_to_num[count_num]
         end_word = f"{count_num}回"
         
-    elif "清火" in chinese_input or "消火" in chinese_input:
-        # 3. 如果没打数字，但提到了“清火”
-        end_word = "火消し" # 日服清火专用词
-        
-    elif  "长途" in chinese_input:
-        # 4. 如果提到了“冲榜”
-        end_word = "長時間周回" # 长时间周回
+
+    # 随机插一点小表情
+    emoji_pool = ["✨", "🎶", "🙌", "🌟", "🎧", "💫"]
     
-    elif  "高速" in chinese_input:
-        end_word = "高速周回"    
-        
-    else:
-        # 5. 啥都没提，默认普通周回
-        end_word = "周回"
+    # 复制一份，避免污染原列表
+    lines = extra_lines.copy()
+    
+    # 30%概率随机给一句后面加emoji
+    for i in range(len(lines)):
+        if random.random() < 0.3:
+            lines[i] += " " + random.choice(emoji_pool)
+    
+    # 打乱顺序
+    random.shuffle(lines)
+    
+    # 拼接成文本
+    extra_text = "\n".join(lines)
         
     jp_mode = ""  # 默认不填歌曲名
     for cn_word, jp_word in DICTIONARY.items():
-        if cn_word in chinese_input:
+        if cn_word in raw:
             jp_mode = jp_word
             break
     text = f""" ベテラン {jp_mode}{end_word} @{wanted_players}
@@ -105,16 +146,9 @@ def do_transform(chinese_input):
     {support_line}
     {host_line}
     {bonus_line}
-    長時間歓迎
-    途中退室OK
-    スタンプ他と同じです
-    SF気にしません
-    難易度自由
-    集まるまで待てる方
-    条件違い解散
+    {extra_text}
     
-    #プロセカ募集 #プロセカ協力 #プロセカ"""
-
+    {random.choice(tag_lines)}"""
     return text #  在函数末尾把文本 return 出来
 
 # 运行 python main.py 时才会触发这里
