@@ -1,3 +1,10 @@
+"""Core text conversion rules for the PJSK car bot.
+
+This file is intentionally independent from NapCat/WebSocket code.  The bot
+service in server.py imports do_transform() from here, so editing the wording,
+keywords, or generated template usually only requires changing this file.
+"""
+
 import re
 import random
 DICTIONARY = {
@@ -42,6 +49,7 @@ def get_mode(raw):
     return "周回"
     
 def do_transform(text):
+    """Convert one Chinese /发车 message body into the Japanese募集文案."""
     raw = text
     room_match = re.search(r'\d{5}', raw)
     room_number = room_match.group() if room_match else "XXXXX"
@@ -84,8 +92,12 @@ def do_transform(text):
     
     end_word = get_mode(raw)              
     
-    time_match = re.search(r'([\d一二三四五六七八九十]{1,2})[:点\s](\d{2})?分?(半)?', raw)
-    count_match = re.search(r'([\d一二三四五六七八九十]+)\s*(把|次|圈|回)', raw)
+    # 用 clean 判断时间/次数，避免房间号 12345 被误识别成 45時まで。
+    time_match = re.search(
+        r'(?<![A-Za-z0-9])([\d一二三四五六七八九十]{1,2})[:点](\d{2})?分?(半)?',
+        clean,
+    )
+    count_match = re.search(r'([\d一二三四五六七八九十]+)\s*(把|次|圈|回)', clean)
     
     if time_match:
         hour = time_match.group(1)
