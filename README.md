@@ -6,9 +6,8 @@
 
 ```text
 NapCat 反向 WebSocket -> ws://127.0.0.1:8765 -> server.py
-```
-
-也就是说，普通使用者如果只是想用你部署好的服务，**不需要下载这份代码**，只要在自己的 NapCat 里新增一个反向 WebSocket，连接到你提供的 WebSocket 地址即可。
+``
+只要在自己的 NapCat 里新增一个反向 WebSocket，连接到你提供的 WebSocket 地址即可。
 
 
 ## 新手先看：我到底要填哪个地址？
