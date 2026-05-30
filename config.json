@@ -4,8 +4,8 @@
     "port": 8765
   },
   "bridge": {
-    "napcat_ws_url": "ws://localhost:3001",
-    "server_ws_url": "ws://localhost:8765",
+    "napcat_ws_url": "ws://127.0.0.1:3001",
+    "server_ws_url": "ws://127.0.0.1:8765",
     "reconnect_initial_delay": 1,
     "reconnect_max_delay": 30,
     "car_response_timeout": 30
