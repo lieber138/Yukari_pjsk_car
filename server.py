@@ -7,12 +7,18 @@ import websockets
 
 from config import load_config
 from main import do_transform
+from twitter import post_tweet
+from ycm import search_cars
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger("server")
+
+# 暂存待确认的推文，key 是 group_id，value 是推文内容
+# 原理：用户发 /发推 时先存在这里，等 /确认发推 再真正发出去
+pending_tweets: dict[int, str] = {}
 
 
 def build_group_message(group_id: int | str, message: str) -> str:
@@ -62,18 +68,85 @@ async def handle_napcat_event(websocket, event: dict[str, Any]) -> None:
         logger.warning("raw_message 不是字符串，已跳过：%r", text)
         return
 
-    if not text.startswith("/发车"):
+    # ── /发车 命令（原有逻辑不变）──────────────────────────
+    if text.startswith("/发车"):
+        car_text = text.removeprefix("/发车").strip()
+        try:
+            result_text = do_transform(car_text)
+        except Exception:
+            logger.exception("处理 /发车 消息失败")
+            result_text = "❌ 消息处理失败，请检查输入格式后重试"
+        await websocket.send(build_group_message(group_id, result_text))
         return
 
-    car_text = text.removeprefix("/发车").strip()
+    # ── /发推 命令：预览推文，等待确认 ────────────────────
+    if text.startswith("/发推"):
+        tweet_text = text.removeprefix("/发推").strip()
 
-    try:
-        result_text = do_transform(car_text)
-    except Exception:
-        logger.exception("处理 /发车 消息失败，已向群 %s 返回错误提示", group_id)
-        result_text = "❌ 消息处理失败，请检查输入格式后重试"
+        if not tweet_text:
+            reply = "❌ 请在 /发推 后面写上推文内容\n例如：/发推 今天天气真好"
+            await websocket.send(build_group_message(group_id, reply))
+            return
 
-    await websocket.send(build_group_message(group_id, result_text))
+        if len(tweet_text) > 280:
+            reply = f"❌ 推文内容超过280字符（当前 {len(tweet_text)} 字符），请缩短后重试"
+            await websocket.send(build_group_message(group_id, reply))
+            return
+
+        # 把推文内容暂存起来，等用户确认
+        pending_tweets[group_id] = tweet_text
+
+        reply = (
+            f"📝 准备发送以下推文：\n"
+            f"───────────────\n"
+            f"{tweet_text}\n"
+            f"───────────────\n"
+            f"发送 /确认发推 确认发送\n"
+            f"发送 /取消发推 取消"
+        )
+        await websocket.send(build_group_message(group_id, reply))
+        return
+
+    # ── /确认发推 命令：真正发推 ───────────────────────────
+    if text.strip() == "/确认发推":
+        if group_id not in pending_tweets:
+            reply = "❌ 没有待发送的推文，请先使用 /发推 命令"
+            await websocket.send(build_group_message(group_id, reply))
+            return
+
+        tweet_text = pending_tweets.pop(group_id)  # 取出并删除暂存
+
+        try:
+            url = post_tweet(tweet_text)
+            reply = f"✅ 推文发送成功！\n{url}"
+        except Exception:
+            logger.exception("发推失败")
+            reply = "❌ 发推失败，请检查 API Key 或网络连接"
+
+        await websocket.send(build_group_message(group_id, reply))
+        return
+
+    # ── /ycm 命令：搜索发车推文 ───────────────────────────
+    if text.startswith("/ycm"):
+        filter_word = text.removeprefix("/ycm").strip()
+        await websocket.send(build_group_message(group_id, "🔍 搜索中，请稍候..."))
+        try:
+            result = search_cars(filter_word)
+        except Exception:
+            logger.exception("ycm 搜索失败")
+            result = "❌ 搜索失败，请稍后重试"
+        await websocket.send(build_group_message(group_id, result))
+        return
+
+    # ── /取消发推 命令 ─────────────────────────────────────
+    if text.strip() == "/取消发推":
+        if group_id in pending_tweets:
+            pending_tweets.pop(group_id)
+            reply = "🚫 已取消发推"
+        else:
+            reply = "❌ 没有待取消的推文"
+        await websocket.send(build_group_message(group_id, reply))
+        return
 
 
 async def handler(websocket, path=None):
