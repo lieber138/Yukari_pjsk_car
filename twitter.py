@@ -6,11 +6,11 @@
 import tweepy
 
 # ── 把你的五个 key 填在这里 ──────────────────────────────
-CONSUMER_KEY        = "2keeAgWV1IDtBkgCwtb6Fe2jR"
-CONSUMER_SECRET     ="P1ao24i3No9bKmCij0R5pUcdf6cmePrFls0rSPv9Pxxy9feGMt"
-ACCESS_TOKEN        = "2007381108531568640-SuLnZnuhvG6hgS8anlHV4wtSHiBlKU"
-ACCESS_TOKEN_SECRET = "lSIqrsxhkEMMRL6jfOhmZl5qUyGyoIY4T1bUDwwfRPKJJ"
-BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAAOnz%2BAEAAAAAM2PK2lWD8RDwzjUjEUTY8svlyEw%3DYEzI7uEeJrqrTxrgu7Gmg7kkgehps0mt09ahxrClMQoMfuqMPU"
+CONSUMER_KEY        = ""
+CONSUMER_SECRET     =""
+ACCESS_TOKEN        = ""
+ACCESS_TOKEN_SECRET = ""
+BEARER_TOKEN = ""
 # Bearer Token 只用于只读操作，发推用不到，可以不填
 # ────────────────────────────────────────────────────────
 
